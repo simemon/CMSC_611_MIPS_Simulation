@@ -2,7 +2,18 @@ from __future__ import print_function
 import re
 from Instructions import Instructions
 from Configurations import Configurations
+from Results import Results
 from Data import Memory
+
+
+class ResultFileWriter:
+    def __init__(self, filename, instruction_file_parser):
+        self.result_file = filename
+        self.results = []
+        self.instruction_file_parser = instruction_file_parser
+    
+
+
 
 class DataFileParser:
     def __init__(self, filename):
@@ -47,7 +58,6 @@ class ConfigFileParser:
             self.configurations.set_fp_i_cache_block_count(int(tokens[1].strip().strip(',')))
             self.configurations.set_fp_i_cache_block_size(int(tokens[2].strip()))
 
-
     def read_config(self):
         with open(self.config_file, "r") as config_fp:
             for line in config_fp:
@@ -63,9 +73,10 @@ class InstructionFileParser:
         self.instruction_file =  filename
         self.instructions = []
 
-
+    @staticmethod
     def parse_instruction(self, line):
         instruction = Instructions()
+        instruction.set_text(line.strip())
         line = line.strip().upper()
         tokens = re.split('\s+', line)
         tokens = [token.strip(',') for token in tokens]
@@ -76,7 +87,6 @@ class InstructionFileParser:
         instruction.set_opcode(tokens[opcode_token].strip())
         instruction.set_operands(tokens[opcode_token + 1:])
         return instruction
-
 
     def read_instructions(self):
         with open(self.instruction_file, "r") as instruction_fp:

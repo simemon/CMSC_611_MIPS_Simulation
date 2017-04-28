@@ -19,3 +19,6 @@ data_file_reader.read_memory()
 data_file_reader.print_memory()
 print("Data File Parsing Done")
 
+
+
+print ("Result File Written")

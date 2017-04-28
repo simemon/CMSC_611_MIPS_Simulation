@@ -4,6 +4,10 @@ class Instructions:
         self.label = None
         self.opcode = None
         self.operands_list = None
+        self.text = None
+
+    def set_text(self, text):
+        self.text = text
 
     def set_opcode(self, opcode):
         self.opcode = opcode
