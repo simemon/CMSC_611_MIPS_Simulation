@@ -1,24 +1,13 @@
-from __future__ import print_function
-from Scoreboard import InstructionFileParser, ConfigFileParser, DataFileParser
+from __future__ import  print_function
+from Scoreboard import  ScoreBoard
+from Results import  Results
+import FileReader
 
-print("Instruction File Parsing Started")
-instr_file_reader = InstructionFileParser('input/Instr.txt')
-instr_file_reader.read_instructions()
-instr_file_reader.print_instructions()
-print("Instruction File Parsing Done")
+sc = ScoreBoard()
+sc.execute()
+results = sc.get_result()
 
-print("Configuration File Parsing Started")
-config_file_reader = ConfigFileParser('input/Config.txt')
-config_file_reader.read_config()
-config_file_reader.print_configurations()
-print("Configuration File Parsing Done")
+Results.print_header()
 
-print("Data File Parsing Started")
-data_file_reader = DataFileParser('input/data.txt')
-data_file_reader.read_memory()
-data_file_reader.print_memory()
-print("Data File Parsing Done")
-
-
-
-print ("Result File Written")
+for result in results:
+    result.print_row()
