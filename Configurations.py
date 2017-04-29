@@ -10,6 +10,10 @@ class Configurations:
         self.fp_divider_cycles = 0
         self.i_cache_block_count = 0
         self.i_cache_block_size = 0
+        self.arithmetic_count = 1
+        self.arithmetic_cycles = 1
+        self.data_count = 1
+        self.data_cycles = 2
 
     def set_fp_adder_count(self, fp_adder_count):
         self.fp_adder_count = fp_adder_count
@@ -34,6 +38,8 @@ class Configurations:
 
     def set_fp_i_cache_block_size(self, fp_i_cache_block_size):
         self.i_cache_block_size = fp_i_cache_block_size
+
+
 
     def __str__(self):
         return_string = ""
