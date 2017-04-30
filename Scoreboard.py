@@ -4,6 +4,7 @@ from FileReader import config_file_reader, data_file_reader, instr_file_reader
 from Instruction_Type import Instruction_Adder,Instruction_Arithmetic,Instruction_Data,Instruction_Divider,Instruction_Multiplier
 from Results import Results
 from Storage import RegisterObject, Register, Floating
+from Data import Memory
 
 class ScoreBoard:
     '''
@@ -36,7 +37,6 @@ class ScoreBoard:
         self.arithmetic_units = []
         self.data_units = []
         self.result = []
-
 
         for i in range(self.adder_count):
             self.adder_units.append(Instruction_Adder(self.adder_count, self.adder_cycles))
@@ -111,6 +111,108 @@ class ScoreBoard:
     def get_result(self):
         return self.result
 
+    def parse_instruction(self, instruction):
+        if instruction.opcode == "LI":
+            if instruction.dest_register[0] not  in Register.value:
+                Register.value[instruction.dest_register[0]] = RegisterObject()
+            Register.value[instruction.dest_register[0]].value = int(instruction.source_register[0])
+
+        elif instruction.opcode == "L.D":
+            if instruction.dest_register[0] not  in Floating.value:
+                Floating.value[instruction.dest_register[0]] = RegisterObject()
+            base = Register.value[instruction.source_register[0]].value
+            base += instruction.displacement
+            base = data_file_reader.memory.get_value(base)
+            Floating.value[instruction.dest_register[0]].value = base
+
+        elif instruction.opcode == "DADDI":
+            if instruction.dest_register[0] not  in Register.value:
+                Register.value[instruction.dest_register[0]] = RegisterObject()
+            if instruction.source_register[0] not  in Register.value:
+                Register.value[instruction.source_register[0]] = RegisterObject()
+
+            calc = Register.value[instruction.source_register[0]].value
+            calc += int(instruction.source_register[1])
+            Register.value[instruction.dest_register[0]].value = calc
+
+        elif instruction.opcode == "DSUBI":
+            if instruction.dest_register[0] not  in Register.value:
+                Register.value[instruction.dest_register[0]] = RegisterObject()
+            if instruction.source_register[0] not  in Register.value:
+                Register.value[instruction.source_register[0]] = RegisterObject()
+
+            calc = Register.value[instruction.source_register[0]].value
+            calc -= int(instruction.source_register[1])
+            Register.value[instruction.dest_register[0]].value = calc
+
+        elif instruction.opcode == "DADD":
+            if instruction.dest_register[0] not  in Register.value:
+                Register.value[instruction.dest_register[0]] = RegisterObject()
+            for register in instruction.source_register:
+                if register not in Register.value:
+                    Register.value[register] = RegisterObject()
+
+            calc = Register.value[instruction.source_register[0]].value
+            calc += Register.value[instruction.source_register[1]].value
+            Floating.value[instruction.dest_register[0]].value = calc
+
+        elif instruction.opcode == "DSUB":
+            if instruction.dest_register[0] not  in Register.value:
+                Register.value[instruction.dest_register[0]] = RegisterObject()
+            for register in instruction.source_register:
+                if register not in Register.value:
+                    Register.value[register] = RegisterObject()
+
+            calc = Register.value[instruction.source_register[0]].value
+            calc -= Register.value[instruction.source_register[1]].value
+            Floating.value[instruction.dest_register[0]].value = calc
+
+        elif instruction.opcode == "ADD.D":
+            if instruction.dest_register[0] not  in Floating.value:
+                Floating.value[instruction.dest_register[0]] = RegisterObject()
+            for register in instruction.source_register:
+                if register not in Floating.value:
+                    Floating.value[register] = RegisterObject()
+
+            calc = Floating.value[instruction.source_register[0]].value
+            calc += Floating.value[instruction.source_register[1]].value
+            Floating.value[instruction.dest_register[0]].value = calc
+
+        elif instruction.opcode == "SUB.D":
+            if instruction.dest_register[0] not  in Floating.value:
+                Floating.value[instruction.dest_register[0]] = RegisterObject()
+            for register in instruction.source_register:
+                if register not in Floating.value:
+                    Floating.value[register] = RegisterObject()
+
+            calc = Floating.value[instruction.source_register[0]].value
+            calc -= Floating.value[instruction.source_register[1]].value
+            Floating.value[instruction.dest_register[0]].value = calc
+
+        elif instruction.opcode == "MULT.D":
+            if instruction.dest_register[0] not  in Floating.value:
+                Floating.value[instruction.dest_register[0]] = RegisterObject()
+            for register in instruction.source_register:
+                if register not in Floating.value:
+                    Floating.value[register] = RegisterObject()
+
+            calc = Floating.value[instruction.source_register[0]].value
+            calc *= Floating.value[instruction.source_register[1]].value
+            Floating.value[instruction.dest_register[0]].value = calc
+
+        elif instruction.opcode == "DIV.D":
+            if instruction.dest_register[0] not  in Floating.value:
+                Floating.value[instruction.dest_register[0]] = RegisterObject()
+            for register in instruction.source_register:
+                if register not in Floating.value:
+                    Floating.value[register] = RegisterObject()
+
+            param1 = Floating.value[instruction.source_register[0]].value
+            param2 = Floating.value[instruction.source_register[1]].value
+            param1 = param1 // param2 if param2 != 0 else param1
+            Floating.value[instruction.dest_register[0]].value = param1
+
+
     def execute(self):
         last_issue = 1
         for index, instruction in enumerate(self.instructions):
@@ -122,7 +224,10 @@ class ScoreBoard:
                 fetch_cycle = last_issue
                 current_result.set_fetch_stage(last_issue)
 
-                #Issue Stage (WAW Pending)
+                # Parsing Instruction to update the memory
+                self.parse_instruction(instruction)
+
+                #Issue Stage
                 issue_cycle = fetch_cycle + 1
                 index, when = self.isAdderFree()
                 if when > issue_cycle:
@@ -183,6 +288,9 @@ class ScoreBoard:
                 # Fetch Stage
                 fetch_cycle = last_issue
                 current_result.set_fetch_stage(last_issue)
+
+                # Parsing Instruction to update the memory
+                self.parse_instruction(instruction)
 
                 #Issue Stage (WAW Pending)
                 issue_cycle = fetch_cycle + 1
@@ -246,6 +354,9 @@ class ScoreBoard:
                 fetch_cycle = last_issue
                 current_result.set_fetch_stage(last_issue)
 
+                # Parsing Instruction to update the memory
+                self.parse_instruction(instruction)
+
                 #Issue Stage (WAW Pending)
                 issue_cycle = fetch_cycle + 1
                 index, when = self.isArithmeticFree()
@@ -307,6 +418,9 @@ class ScoreBoard:
                 # Fetch Stage
                 fetch_cycle = last_issue
                 current_result.set_fetch_stage(last_issue)
+
+                # Parsing Instruction to update the memory
+                self.parse_instruction(instruction)
 
                 #Issue Stage (WAW Pending)
                 issue_cycle = fetch_cycle + 1
@@ -370,7 +484,10 @@ class ScoreBoard:
                 fetch_cycle = last_issue
                 current_result.set_fetch_stage(last_issue)
 
-                #Issue Stage (WAW Pending)
+                # Parsing Instruction to update the memory
+                self.parse_instruction(instruction)
+
+                # Issue Stage (WAW Pending)
                 issue_cycle = fetch_cycle + 1
                 index, when = self.isDividerFree()
                 if when > issue_cycle:

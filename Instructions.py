@@ -9,6 +9,7 @@ class Instructions:
         self.text = None
         self.source_register = []
         self.dest_register = []
+        self.displacement = 0
 
     def set_text(self, text):
         self.text = text
@@ -26,13 +27,17 @@ class Instructions:
 
     def set_source_register(self):
         # WITHOUT CONSIDERING SD INSTRUCTION
-        regex = re.compile("[0-9]+\(([a-zA-Z\d]+)\)")
+        regex = re.compile("([0-9])+\(([a-zA-Z\d]+)\)")
         for operands in self.operands_list[1:]:
             if not operands.isdigit():
                 if "(" in operands:
-                    self.source_register.append(regex.search(operands).groups()[0])
+                    self.displacement = int(regex.search(operands).groups()[0])
+                    self.source_register.append(regex.search(operands).groups()[1])
                 else:
                     self.source_register.append(operands)
+            else:
+                self.source_register.append(operands)
+
 
     def set_dest_register(self):
         # WITHOUT CONSIDERING SD INSTRUCTION

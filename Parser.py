@@ -11,8 +11,6 @@ class ResultFileWriter:
         self.result_file = filename
         self.results = []
         self.instruction_file_parser = instruction_file_parser
-    
-
 
 
 class DataFileParser:
