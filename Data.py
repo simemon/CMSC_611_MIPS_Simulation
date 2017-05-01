@@ -1,12 +1,12 @@
-from collections import OrderedDict
+from collections import defaultdict
 
 
 class Memory:
 
     def __init__(self):
         self.base_address = 0x100
-        self.address_string_value = OrderedDict()
-        self.address_actual_value = OrderedDict()
+        self.address_string_value = defaultdict(int)
+        self.address_actual_value = defaultdict(int)
 
     def set_base_address(self, base_address):
         self.base_address = base_address

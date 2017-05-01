@@ -53,8 +53,8 @@ class Results:
         print(result)
 
     def print_row(self):
-        result = "{:<20}\t{:<5}\t{:<5}\t{:<5}\t{:<5}\t{:<5}\t{:<3}\t{:<3}\t{:<6}"
-        result = result.format(self.instruction_text, self.fetch_stage, self.issue_stage, self.read_stage, self.exec_stage, self.write_stage, self.raw_hazard, self.waw_hazard, self.struct_hazard)
+        result = "{text:<20}\t{fetch:<5}\t{issue:<5}\t{read:<5}\t{executable:<5}\t{write:<5}\t{raw:<3}\t{waw:<3}\t{struct:<6}"
+        result = result.format(text=self.instruction_text, fetch=self.fetch_stage, issue=self.issue_stage, read = self.read_stage if self.read_stage != 0 else "-", executable=self.exec_stage if self.exec_stage != 0 else "-", write = self.write_stage if self.write_stage != 0 else "-", raw=self.raw_hazard, waw=self.waw_hazard, struct=self.struct_hazard)
         print(result)
 
 

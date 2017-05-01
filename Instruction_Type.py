@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+
 class Instruction_Data:
     count = 0
     min_value = 0
@@ -99,6 +100,31 @@ class Instruction_Divider:
                 cls.min_val = obj.when_available
                 cls.min_index = ind
 
+
+class Instruction_Conditional:
+    count = 0
+    min_value = 0
+    min_index = 0
+    execution_cycle = 0
+
+    def __init__(self, count, execution_cycle):
+        Instruction_Conditional.count = count
+        Instruction_Conditional.execution_cycle = execution_cycle
+        self.isBusy = False
+        self.when_available = 0
+
+
+class Instruction_UnConditional:
+    count = 0
+    min_value = 0
+    min_index = 0
+    execution_cycle = 0
+
+    def __init__(self, count, execution_cycle):
+        Instruction_UnConditional.count = count
+        Instruction_UnConditional.execution_cycle = execution_cycle
+        self.isBusy = False
+        self.when_available = 0
 
 
 

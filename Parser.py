@@ -71,8 +71,8 @@ class InstructionFileParser:
         self.instruction_file =  filename
         self.instructions = []
 
-    def parse_instruction(self, line):
-        instruction = Instructions()
+    def parse_instruction(self, line, index):
+        instruction = Instructions(index) # Instruction Number from #0
         instruction.set_text(line.strip())
         line = line.strip().upper()
         tokens = re.split('\s+', line)
@@ -87,8 +87,8 @@ class InstructionFileParser:
 
     def read_instructions(self):
         with open(self.instruction_file, "r") as instruction_fp:
-            for instruction in instruction_fp:
-                self.instructions.append(self.parse_instruction(instruction))
+            for index, instruction in enumerate(instruction_fp):
+                self.instructions.append(self.parse_instruction(instruction, index))
 
     def print_instructions(self):
         for instruction in self.instructions:

@@ -5,6 +5,7 @@ from Instruction_Type import Instruction_Adder,Instruction_Arithmetic,Instructio
 from Results import Results
 from Storage import RegisterObject, Register, Floating
 from Data import Memory
+from Label import Label
 
 class ScoreBoard:
     '''
@@ -20,6 +21,8 @@ class ScoreBoard:
         self.MULTIPLIER_LIST = ["MUL.D"]
         self.ADDER_LIST = ["ADD.D", "SUB.D"]
         self.DIVIDER_LIST = ["DIV.D"]
+        self.BRANCH_CONDITIONAL_LIST = ["BEQ", "BNE", "BGTZ", "BLTZ", "BGEZ", "BLEZ"]
+        self.BRANCH_UNCONDITIONAL_LIST = ["J"]
 
         self.adder_count = config_file_reader.configurations.fp_adder_count
         self.adder_cycles = config_file_reader.configurations.fp_adder_cycles
@@ -31,6 +34,9 @@ class ScoreBoard:
         self.arithmetic_cycles = config_file_reader.configurations.arithmetic_cycles
         self.data_count = config_file_reader.configurations.data_count
         self.data_cycles = config_file_reader.configurations.data_cycles
+        self.branch_count = config_file_reader.configurations.branch_count
+        self.branch_cycles = config_file_reader.configurations.branch_cycles
+
         self.adder_units = []
         self.multiplier_units = []
         self.divider_units = []
@@ -105,11 +111,41 @@ class ScoreBoard:
             return "Adder".upper()
         elif instruction.opcode in self.DIVIDER_LIST:
             return "Divider".upper()
+        elif instruction.opcode in self.BRANCH_CONDITIONAL_LIST:
+            return "BranchConditional".upper()
+        elif instruction.opcode in self.BRANCH_UNCONDITIONAL_LIST:
+            return "BranchUnconditional".upper()
         else:
             raise "Unknown Opcode"
 
     def get_result(self):
         return self.result
+
+
+    def branch_satisfaction(self, instruction):
+        if instruction.opcode == "BEQ":
+            if Register.value[instruction.dest_register[0]].value == Register.value[instruction.source_register[0]].value:
+                return instruction.source_register[1]
+        elif instruction.opcode == "BNE":
+            if Register.value[instruction.dest_register[0]].value != Register.value[instruction.source_register[0]].value:
+                return instruction.source_register[1]
+        elif instruction.opcode == "BGEZ":
+            if Register.value[instruction.dest_register[0]].value >= 0:
+                return instruction.source_register[0]
+        elif instruction.opcode == "BGTZ":
+            if Register.value[instruction.dest_register[0]].value > 0:
+                return instruction.source_register[0]
+        elif instruction.opcode == "BLEZ":
+            if Register.value[instruction.dest_register[0]].value <= 0:
+                return instruction.source_register[0]
+        elif instruction.opcode == "BLTZ":
+            if Register.value[instruction.dest_register[0]].value < 0:
+                return instruction.source_register[0]
+        elif instruction.opcode == "J":
+            return instruction.dest_register[0]
+
+        return None
+
 
     def parse_instruction(self, instruction):
         if instruction.opcode == "LI":
@@ -154,7 +190,7 @@ class ScoreBoard:
 
             calc = Register.value[instruction.source_register[0]].value
             calc += Register.value[instruction.source_register[1]].value
-            Floating.value[instruction.dest_register[0]].value = calc
+            Register.value[instruction.dest_register[0]].value = calc
 
         elif instruction.opcode == "DSUB":
             if instruction.dest_register[0] not  in Register.value:
@@ -165,7 +201,7 @@ class ScoreBoard:
 
             calc = Register.value[instruction.source_register[0]].value
             calc -= Register.value[instruction.source_register[1]].value
-            Floating.value[instruction.dest_register[0]].value = calc
+            Register.value[instruction.dest_register[0]].value = calc
 
         elif instruction.opcode == "ADD.D":
             if instruction.dest_register[0] not  in Floating.value:
@@ -215,7 +251,16 @@ class ScoreBoard:
 
     def execute(self):
         last_issue = 1
-        for index, instruction in enumerate(self.instructions):
+        instruction_index = 0
+        conditional_branch_flag = False
+        unconditional_branch_flag = False
+        branch_label_conditional = None
+        branch_label_unconditional = None
+
+        #for instruction_index, instruction in enumerate(self.instructions):
+        while instruction_index < len(self.instructions):
+            next_index = instruction_index + 1
+            instruction = self.instructions[instruction_index]
             current_result = Results()
             current_result.set_instruction(instruction)
             instruction_type = self.instruction_type(instruction)
@@ -227,62 +272,72 @@ class ScoreBoard:
                 # Parsing Instruction to update the memory
                 self.parse_instruction(instruction)
 
-                #Issue Stage
-                issue_cycle = fetch_cycle + 1
-                index, when = self.isAdderFree()
-                if when > issue_cycle:
-                    current_result.set_struct_hazard('Y')
-                    issue_cycle = when + 1
+                if unconditional_branch_flag:
+                    unconditional_branch_flag = False
+                    next_index = Label.get_label(branch_label_unconditional)
+                    branch_label_unconditional = None
+                else:
+                    #Issue Stage
+                    issue_cycle = fetch_cycle + 1
+                    index, when = self.isAdderFree()
+                    if when > issue_cycle:
+                        current_result.set_struct_hazard('Y')
+                        issue_cycle = when + 1
 
-                temp_cycle = issue_cycle
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                    temp_cycle = issue_cycle
+                    for register in instruction.dest_register:
+                        if register not in Register.value:
+                            Register.value[register] = RegisterObject()
+                        temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
 
-                if temp_cycle > issue_cycle:
-                    current_result.set_waw_hazard('Y')
+                    if temp_cycle > issue_cycle:
+                        current_result.set_waw_hazard('Y')
 
-                issue_cycle = temp_cycle
-                current_result.set_issue_stage(issue_cycle)
-                last_issue = issue_cycle
+                    issue_cycle = temp_cycle
+                    current_result.set_issue_stage(issue_cycle)
+                    last_issue = issue_cycle
 
-                #Read Stage
-                read_cycle = issue_cycle + 1
-                temp_cycle = read_cycle
+                    if conditional_branch_flag:
+                        conditional_branch_flag = False
+                        next_index = Label.get_label(branch_label_conditional)
+                        branch_label_conditional = None
+                    else:
+                        #Read Stage
+                        read_cycle = issue_cycle + 1
+                        temp_cycle = read_cycle
 
-                #Handling RAW Hazards (Source)
-                for register in instruction.source_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                        #Handling RAW Hazards (Source)
+                        for register in instruction.source_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
 
-                #Handling RAW Hazards (Destination)
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
-                    temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
+                        #Handling RAW Hazards (Destination)
+                        for register in instruction.dest_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                            temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
 
-                if temp_cycle > read_cycle:
-                    current_result.set_raw_hazard('Y')
+                        if temp_cycle > read_cycle:
+                            current_result.set_raw_hazard('Y')
 
-                read_cycle = temp_cycle
-                current_result.set_read_stage(read_cycle)
+                        read_cycle = temp_cycle
+                        current_result.set_read_stage(read_cycle)
 
-                #Exec Stage
-                exec_cycle = read_cycle + self.adder_cycles
-                current_result.set_exec_stage(exec_cycle)
+                        #Exec Stage
+                        exec_cycle = read_cycle + self.adder_cycles
+                        current_result.set_exec_stage(exec_cycle)
 
-                #Write Back Stage
-                write_cycle = exec_cycle + 1
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    Register.value[register].last_write = write_cycle
+                        #Write Back Stage
+                        write_cycle = exec_cycle + 1
+                        for register in instruction.dest_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            Register.value[register].last_write = write_cycle
 
-                current_result.set_write_stage(write_cycle)
-                self.adder_units[index].when_available = write_cycle
+                        current_result.set_write_stage(write_cycle)
+                        self.adder_units[index].when_available = write_cycle
 
             elif instruction_type == "DATA":
                 # Fetch Stage
@@ -292,62 +347,72 @@ class ScoreBoard:
                 # Parsing Instruction to update the memory
                 self.parse_instruction(instruction)
 
-                #Issue Stage (WAW Pending)
-                issue_cycle = fetch_cycle + 1
-                index, when = self.isDataFree()
-                if when > issue_cycle:
-                    current_result.set_struct_hazard('Y')
-                    issue_cycle = when + 1
+                if unconditional_branch_flag:
+                    unconditional_branch_flag = False
+                    next_index = Label.get_label(branch_label_unconditional)
+                    branch_label_unconditional = None
+                else:
+                    #Issue Stage (WAW Pending)
+                    issue_cycle = fetch_cycle + 1
+                    index, when = self.isDataFree()
+                    if when > issue_cycle:
+                        current_result.set_struct_hazard('Y')
+                        issue_cycle = when + 1
 
-                temp_cycle = issue_cycle
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                    temp_cycle = issue_cycle
+                    for register in instruction.dest_register:
+                        if register not in Register.value:
+                            Register.value[register] = RegisterObject()
+                        temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
 
-                if temp_cycle > issue_cycle:
-                    current_result.set_waw_hazard('Y')
+                    if temp_cycle > issue_cycle:
+                        current_result.set_waw_hazard('Y')
 
-                issue_cycle = temp_cycle
-                current_result.set_issue_stage(issue_cycle)
-                last_issue = issue_cycle
+                    issue_cycle = temp_cycle
+                    current_result.set_issue_stage(issue_cycle)
+                    last_issue = issue_cycle
 
-                #Read Stage
-                read_cycle = issue_cycle + 1
-                temp_cycle = read_cycle
+                    if conditional_branch_flag:
+                        conditional_branch_flag = False
+                        next_index = Label.get_label(branch_label_conditional)
+                        branch_label_conditional = None
+                    else:
+                        #Read Stage
+                        read_cycle = issue_cycle + 1
+                        temp_cycle = read_cycle
 
-                #Handling RAW Hazards (Source)
-                for register in instruction.source_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                        #Handling RAW Hazards (Source)
+                        for register in instruction.source_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
 
-                #Handling RAW Hazards (Destination)
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
-                    temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
+                        #Handling RAW Hazards (Destination)
+                        for register in instruction.dest_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                            temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
 
-                if temp_cycle > read_cycle:
-                    current_result.set_raw_hazard('Y')
+                        if temp_cycle > read_cycle:
+                            current_result.set_raw_hazard('Y')
 
-                read_cycle = temp_cycle
-                current_result.set_read_stage(read_cycle)
+                        read_cycle = temp_cycle
+                        current_result.set_read_stage(read_cycle)
 
-                #Exec Stage
-                exec_cycle = read_cycle + self.data_cycles
-                current_result.set_exec_stage(exec_cycle)
+                        #Exec Stage
+                        exec_cycle = read_cycle + self.data_cycles
+                        current_result.set_exec_stage(exec_cycle)
 
-                #Write Back Stage
-                write_cycle = exec_cycle + 1
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    Register.value[register].last_write = write_cycle
+                        #Write Back Stage
+                        write_cycle = exec_cycle + 1
+                        for register in instruction.dest_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            Register.value[register].last_write = write_cycle
 
-                current_result.set_write_stage(write_cycle)
-                self.data_units[index].when_available = write_cycle
+                        current_result.set_write_stage(write_cycle)
+                        self.data_units[index].when_available = write_cycle
 
             elif instruction_type == "ARITHMETIC":
                 # Fetch Stage
@@ -357,62 +422,72 @@ class ScoreBoard:
                 # Parsing Instruction to update the memory
                 self.parse_instruction(instruction)
 
-                #Issue Stage (WAW Pending)
-                issue_cycle = fetch_cycle + 1
-                index, when = self.isArithmeticFree()
-                if when > issue_cycle:
-                    current_result.set_struct_hazard('Y')
-                    issue_cycle = when + 1
+                if unconditional_branch_flag:
+                    unconditional_branch_flag = False
+                    next_index = Label.get_label(branch_label_unconditional)
+                    branch_label_unconditional = None
+                else:
+                    #Issue Stage (WAW Pending)
+                    issue_cycle = fetch_cycle + 1
+                    index, when = self.isArithmeticFree()
+                    if when > issue_cycle:
+                        current_result.set_struct_hazard('Y')
+                        issue_cycle = when + 1
 
-                temp_cycle = issue_cycle
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                    temp_cycle = issue_cycle
+                    for register in instruction.dest_register:
+                        if register not in Register.value:
+                            Register.value[register] = RegisterObject()
+                        temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
 
-                if temp_cycle > issue_cycle:
-                    current_result.set_waw_hazard('Y')
+                    if temp_cycle > issue_cycle:
+                        current_result.set_waw_hazard('Y')
 
-                issue_cycle = temp_cycle
-                current_result.set_issue_stage(issue_cycle)
-                last_issue = issue_cycle
+                    issue_cycle = temp_cycle
+                    current_result.set_issue_stage(issue_cycle)
+                    last_issue = issue_cycle
 
-                #Read Stage
-                read_cycle = issue_cycle + 1
-                temp_cycle = read_cycle
+                    if conditional_branch_flag:
+                        conditional_branch_flag = False
+                        next_index = Label.get_label(branch_label_conditional)
+                        branch_label_conditional = None
+                    else:
+                        #Read Stage
+                        read_cycle = issue_cycle + 1
+                        temp_cycle = read_cycle
 
-                #Handling RAW Hazards (Source)
-                for register in instruction.source_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                        #Handling RAW Hazards (Source)
+                        for register in instruction.source_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
 
-                #Handling RAW Hazards (Destination)
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
-                    temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
+                        #Handling RAW Hazards (Destination)
+                        for register in instruction.dest_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                            temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
 
-                if temp_cycle > read_cycle:
-                    current_result.set_raw_hazard('Y')
+                        if temp_cycle > read_cycle:
+                            current_result.set_raw_hazard('Y')
 
-                read_cycle = temp_cycle
-                current_result.set_read_stage(read_cycle)
+                        read_cycle = temp_cycle
+                        current_result.set_read_stage(read_cycle)
 
-                #Exec Stage
-                exec_cycle = read_cycle + self.arithmetic_cycles
-                current_result.set_exec_stage(exec_cycle)
+                        #Exec Stage
+                        exec_cycle = read_cycle + self.arithmetic_cycles
+                        current_result.set_exec_stage(exec_cycle)
 
-                #Write Back Stage
-                write_cycle = exec_cycle + 1
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    Register.value[register].last_write = write_cycle
+                        #Write Back Stage
+                        write_cycle = exec_cycle + 1
+                        for register in instruction.dest_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            Register.value[register].last_write = write_cycle
 
-                current_result.set_write_stage(write_cycle)
-                self.arithmetic_units[index].when_available = write_cycle
+                        current_result.set_write_stage(write_cycle)
+                        self.arithmetic_units[index].when_available = write_cycle
 
             elif instruction_type == "MULTIPLIER":
                 # Fetch Stage
@@ -422,62 +497,72 @@ class ScoreBoard:
                 # Parsing Instruction to update the memory
                 self.parse_instruction(instruction)
 
-                #Issue Stage (WAW Pending)
-                issue_cycle = fetch_cycle + 1
-                index, when = self.isMultiplierFree()
-                if when > issue_cycle:
-                    current_result.set_struct_hazard('Y')
-                    issue_cycle = when + 1
+                if unconditional_branch_flag:
+                    unconditional_branch_flag = False
+                    next_index = Label.get_label(branch_label_unconditional)
+                    branch_label_unconditional = None
+                else:
+                    #Issue Stage (WAW Pending)
+                    issue_cycle = fetch_cycle + 1
+                    index, when = self.isMultiplierFree()
+                    if when > issue_cycle:
+                        current_result.set_struct_hazard('Y')
+                        issue_cycle = when + 1
 
-                temp_cycle = issue_cycle
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                    temp_cycle = issue_cycle
+                    for register in instruction.dest_register:
+                        if register not in Register.value:
+                            Register.value[register] = RegisterObject()
+                        temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
 
-                if temp_cycle > issue_cycle:
-                    current_result.set_waw_hazard('Y')
+                    if temp_cycle > issue_cycle:
+                        current_result.set_waw_hazard('Y')
 
-                issue_cycle = temp_cycle
-                current_result.set_issue_stage(issue_cycle)
-                last_issue = issue_cycle
+                    issue_cycle = temp_cycle
+                    current_result.set_issue_stage(issue_cycle)
+                    last_issue = issue_cycle
 
-                #Read Stage
-                read_cycle = issue_cycle + 1
-                temp_cycle = read_cycle
+                    if conditional_branch_flag:
+                        conditional_branch_flag = False
+                        next_index = Label.get_label(branch_label_conditional)
+                        branch_label_conditional = None
+                    else:
+                        #Read Stage
+                        read_cycle = issue_cycle + 1
+                        temp_cycle = read_cycle
 
-                #Handling RAW Hazards (Source)
-                for register in instruction.source_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                        #Handling RAW Hazards (Source)
+                        for register in instruction.source_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
 
-                #Handling RAW Hazards (Destination)
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
-                    temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
+                        #Handling RAW Hazards (Destination)
+                        for register in instruction.dest_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                            temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
 
-                if temp_cycle > read_cycle:
-                    current_result.set_raw_hazard('Y')
+                        if temp_cycle > read_cycle:
+                            current_result.set_raw_hazard('Y')
 
-                read_cycle = temp_cycle
-                current_result.set_read_stage(read_cycle)
+                        read_cycle = temp_cycle
+                        current_result.set_read_stage(read_cycle)
 
-                #Exec Stage
-                exec_cycle = read_cycle + self.multiplier_cycles
-                current_result.set_exec_stage(exec_cycle)
+                        #Exec Stage
+                        exec_cycle = read_cycle + self.multiplier_cycles
+                        current_result.set_exec_stage(exec_cycle)
 
-                #Write Back Stage
-                write_cycle = exec_cycle + 1
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    Register.value[register].last_write = write_cycle
+                        #Write Back Stage
+                        write_cycle = exec_cycle + 1
+                        for register in instruction.dest_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            Register.value[register].last_write = write_cycle
 
-                current_result.set_write_stage(write_cycle)
-                self.multiplier_units[index].when_available = write_cycle
+                        current_result.set_write_stage(write_cycle)
+                        self.multiplier_units[index].when_available = write_cycle
 
             elif instruction_type == "DIVIDER":
                 # Fetch Stage
@@ -487,64 +572,218 @@ class ScoreBoard:
                 # Parsing Instruction to update the memory
                 self.parse_instruction(instruction)
 
-                # Issue Stage (WAW Pending)
+                if unconditional_branch_flag:
+                    unconditional_branch_flag = False
+                    next_index = Label.get_label(branch_label_unconditional)
+                    branch_label_unconditional = None
+                else:
+                    # Issue Stage (WAW Pending)
+                    issue_cycle = fetch_cycle + 1
+                    index, when = self.isDividerFree()
+                    if when > issue_cycle:
+                        current_result.set_struct_hazard('Y')
+                        issue_cycle = when + 1
+
+                    temp_cycle = issue_cycle
+                    for register in instruction.dest_register:
+                        if register not in Register.value:
+                            Register.value[register] = RegisterObject()
+                        temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+
+                    if temp_cycle > issue_cycle:
+                        current_result.set_waw_hazard('Y')
+
+                    issue_cycle = temp_cycle
+                    current_result.set_issue_stage(issue_cycle)
+                    last_issue = issue_cycle
+
+                    if conditional_branch_flag:
+                        conditional_branch_flag = False
+                        next_index = Label.get_label(branch_label_conditional)
+                        branch_label_conditional = None
+                    else:
+                        #Read Stage
+                        read_cycle = issue_cycle + 1
+                        temp_cycle = read_cycle
+
+                        #Handling RAW Hazards (Source)
+                        for register in instruction.source_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+
+                        #Handling RAW Hazards (Destination)
+                        for register in instruction.dest_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                            temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
+
+                        if temp_cycle > read_cycle:
+                            current_result.set_raw_hazard('Y')
+
+                        read_cycle = temp_cycle
+                        current_result.set_read_stage(read_cycle)
+
+                        #Exec Stage
+                        exec_cycle = read_cycle + self.divider_cycles
+                        current_result.set_exec_stage(exec_cycle)
+
+                        #Write Back Stage
+                        write_cycle = exec_cycle + 1
+                        for register in instruction.dest_register:
+                            if register not in Register.value:
+                                Register.value[register] = RegisterObject()
+                            Register.value[register].last_write = write_cycle
+
+                        current_result.set_write_stage(write_cycle)
+                        self.divider_units[index].when_available = write_cycle
+
+            elif instruction_type == "BRANCHCONDITIONAL":
+                # Fetch Stage
+                fetch_cycle = last_issue
+                current_result.set_fetch_stage(last_issue)
+
+                # Parsing Instruction to update the memory
+                branch_label_conditional = self.branch_satisfaction(instruction)
+
+                if unconditional_branch_flag:
+                    unconditional_branch_flag = False
+                    next_index = Label.get_label(branch_label_unconditional)
+                    branch_label_unconditional = None
+                else:
+                    # Issue Stage
+                    issue_cycle = fetch_cycle + 1
+                    # index, when = self.isDividerFree()
+                    # if when > issue_cycle:
+                    #     current_result.set_struct_hazard('Y')
+                    #     issue_cycle = when + 1
+                    #
+                    # temp_cycle = issue_cycle
+                    # for register in instruction.dest_register:
+                    #     if register not in Register.value:
+                    #         Register.value[register] = RegisterObject()
+                    #     temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                    #
+                    # if temp_cycle > issue_cycle:
+                    #     current_result.set_waw_hazard('Y')
+                    #
+                    # issue_cycle = temp_cycle
+                    current_result.set_issue_stage(issue_cycle)
+                    last_issue = issue_cycle
+
+                    #Read Stage
+                    read_cycle = issue_cycle + 1
+                    temp_cycle = read_cycle
+
+                    #Handling RAW Hazards (Source)
+                    for register in instruction.source_register[:-1]:
+                        # if register not in Register.value:
+                        #     Register.value[register] = RegisterObject()
+                        temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+
+                    #Handling RAW Hazards (Destination)
+                    for register in instruction.dest_register:
+                        # if register not in Register.value:
+                        #     Register.value[register] = RegisterObject()
+                        temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                        temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
+
+                    if temp_cycle > read_cycle:
+                        current_result.set_raw_hazard('Y')
+
+                    read_cycle = temp_cycle
+                    current_result.set_read_stage(read_cycle)
+
+                    # #Exec Stage
+                    # exec_cycle = read_cycle + self.branch_cycles
+                    # current_result.set_exec_stage(exec_cycle)
+                    #
+                    # #Write Back Stage
+                    # write_cycle = exec_cycle + 1
+                    # # for register in instruction.dest_register:
+                    # #     if register not in Register.value:
+                    # #         Register.value[register] = RegisterObject()
+                    # #     Register.value[register].last_write = write_cycle
+                    #
+                    # current_result.set_write_stage(write_cycle)
+                    # # self.divider_units[index].when_available = write_cycle
+
+            elif instruction_type == "BRANCHUNCONDITIONAL":
+                # Fetch Stage
+                fetch_cycle = last_issue
+                current_result.set_fetch_stage(last_issue)
+
+                # Parsing Instruction to update the memory
+                branch_label_unconditional = self.branch_satisfaction(instruction)
+
+                # Issue Stage
                 issue_cycle = fetch_cycle + 1
-                index, when = self.isDividerFree()
-                if when > issue_cycle:
-                    current_result.set_struct_hazard('Y')
-                    issue_cycle = when + 1
-
-                temp_cycle = issue_cycle
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
-
-                if temp_cycle > issue_cycle:
-                    current_result.set_waw_hazard('Y')
-
-                issue_cycle = temp_cycle
+                # index, when = self.isDividerFree()
+                # if when > issue_cycle:
+                #     current_result.set_struct_hazard('Y')
+                #     issue_cycle = when + 1
+                #
+                # temp_cycle = issue_cycle
+                # for register in instruction.dest_register:
+                #     if register not in Register.value:
+                #         Register.value[register] = RegisterObject()
+                #     temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                #
+                # if temp_cycle > issue_cycle:
+                #     current_result.set_waw_hazard('Y')
+                #
+                # issue_cycle = temp_cycle
                 current_result.set_issue_stage(issue_cycle)
                 last_issue = issue_cycle
 
-                #Read Stage
-                read_cycle = issue_cycle + 1
-                temp_cycle = read_cycle
+                # #Read Stage
+                # read_cycle = issue_cycle + 1
+                # temp_cycle = read_cycle
+                #
+                # #Handling RAW Hazards (Source)
+                # for register in instruction.source_register[:-1]:
+                #     # if register not in Register.value:
+                #     #     Register.value[register] = RegisterObject()
+                #     temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                #
+                # #Handling RAW Hazards (Destination)
+                # for register in instruction.dest_register:
+                #     # if register not in Register.value:
+                #     #     Register.value[register] = RegisterObject()
+                #     temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
+                #     temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
+                #
+                # if temp_cycle > read_cycle:
+                #     current_result.set_raw_hazard('Y')
+                #
+                # read_cycle = temp_cycle
+                # current_result.set_read_stage(read_cycle)
 
-                #Handling RAW Hazards (Source)
-                for register in instruction.source_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
-
-                #Handling RAW Hazards (Destination)
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
-                    temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
-
-                if temp_cycle > read_cycle:
-                    current_result.set_raw_hazard('Y')
-
-                read_cycle = temp_cycle
-                current_result.set_read_stage(read_cycle)
-
-                #Exec Stage
-                exec_cycle = read_cycle + self.divider_cycles
-                current_result.set_exec_stage(exec_cycle)
-
-                #Write Back Stage
-                write_cycle = exec_cycle + 1
-                for register in instruction.dest_register:
-                    if register not in Register.value:
-                        Register.value[register] = RegisterObject()
-                    Register.value[register].last_write = write_cycle
-
-                current_result.set_write_stage(write_cycle)
-                self.divider_units[index].when_available = write_cycle
+                # #Exec Stage
+                # exec_cycle = read_cycle + self.branch_cycles
+                # current_result.set_exec_stage(exec_cycle)
+                #
+                # #Write Back Stage
+                # write_cycle = exec_cycle + 1
+                # # for register in instruction.dest_register:
+                # #     if register not in Register.value:
+                # #         Register.value[register] = RegisterObject()
+                # #     Register.value[register].last_write = write_cycle
+                #
+                # current_result.set_write_stage(write_cycle)
+                # # self.divider_units[index].when_available = write_cycle
 
             self.result.append(current_result)
+            current_result.print_row()
+
+            if branch_label_conditional is not None:
+                conditional_branch_flag = True
+
+            if branch_label_unconditional is not None:
+                unconditional_branch_flag = True
+
+            instruction_index = next_index
 
 
 

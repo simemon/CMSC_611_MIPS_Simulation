@@ -1,8 +1,9 @@
 from __future__ import print_function
 import re
+from Label import Label
 
 class Instructions:
-    def __init__(self):
+    def __init__(self, number):
         self.label = None
         self.opcode = None
         self.operands_list = None
@@ -10,6 +11,7 @@ class Instructions:
         self.source_register = []
         self.dest_register = []
         self.displacement = 0
+        self.number = number
 
     def set_text(self, text):
         self.text = text
@@ -19,6 +21,7 @@ class Instructions:
 
     def set_label(self, label):
         self.label = label
+        Label.add_label(label, self.number)
 
     def set_operands(self, operands_list):
         self.operands_list = operands_list

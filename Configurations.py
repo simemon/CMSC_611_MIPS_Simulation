@@ -14,6 +14,8 @@ class Configurations:
         self.arithmetic_cycles = 1
         self.data_count = 1
         self.data_cycles = 2
+        self.branch_count = 1
+        self.branch_cycles = 1
 
     def set_fp_adder_count(self, fp_adder_count):
         self.fp_adder_count = fp_adder_count
