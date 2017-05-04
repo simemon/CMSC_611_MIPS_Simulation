@@ -8,6 +8,7 @@ class RegisterObject:
         self.last_write = 0
         self.value = 0
 
+
 class Register:
     value = defaultdict(RegisterObject)
 

@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-from FileReader import config_file_reader, data_file_reader, instr_file_reader
+from FileReader import argumentReader
 from Instruction_Type import Instruction_Adder,Instruction_Arithmetic,Instruction_Data,\
     Instruction_Divider,Instruction_Multiplier, Instruction_Control
 from Results import Results
@@ -16,7 +16,7 @@ class ScoreBoard:
             4. For every stage, check hazards, update the current_stage and FU current status
     '''
     def __init__(self):
-        self.instructions = instr_file_reader.instructions
+        self.instructions = argumentReader.instr_file_reader.instructions
         self.DATA_LIST = ["L.D", "S.D", "LW", "SW"]
         self.ARITHMETIC_LIST = ["DADD", "DADDI", "DSUB", "DSUBI", "AND", "ANDI", "OR", "ORI", "LI", "LUI"]
         self.MULTIPLIER_LIST = ["MUL.D"]
@@ -26,20 +26,20 @@ class ScoreBoard:
         self.BRANCH_UNCONDITIONAL_LIST = ["J"]
         self.CONTROL_LIST = ["HLT"]
 
-        self.adder_count = config_file_reader.configurations.fp_adder_count
-        self.adder_cycles = config_file_reader.configurations.fp_adder_cycles
-        self.multiplier_count = config_file_reader.configurations.fp_multiplier_count
-        self.multiplier_cycles = config_file_reader.configurations.fp_multiplier_cycles
-        self.divider_count = config_file_reader.configurations.fp_divider_count
-        self.divider_cycles = config_file_reader.configurations.fp_divider_cycles
-        self.arithmetic_count = config_file_reader.configurations.arithmetic_count
-        self.arithmetic_cycles = config_file_reader.configurations.arithmetic_cycles
-        self.data_count = config_file_reader.configurations.data_count
-        self.data_cycles = config_file_reader.configurations.data_cycles
-        self.branch_count = config_file_reader.configurations.branch_count
-        self.branch_cycles = config_file_reader.configurations.branch_cycles
-        self.control_count = config_file_reader.configurations.control_count
-        self.control_cycles = config_file_reader.configurations.control_cycles
+        self.adder_count = argumentReader.config_file_reader.configurations.fp_adder_count
+        self.adder_cycles = argumentReader.config_file_reader.configurations.fp_adder_cycles
+        self.multiplier_count = argumentReader.config_file_reader.configurations.fp_multiplier_count
+        self.multiplier_cycles = argumentReader.config_file_reader.configurations.fp_multiplier_cycles
+        self.divider_count = argumentReader.config_file_reader.configurations.fp_divider_count
+        self.divider_cycles = argumentReader.config_file_reader.configurations.fp_divider_cycles
+        self.arithmetic_count = argumentReader.config_file_reader.configurations.arithmetic_count
+        self.arithmetic_cycles = argumentReader.config_file_reader.configurations.arithmetic_cycles
+        self.data_count = argumentReader.config_file_reader.configurations.data_count
+        self.data_cycles = argumentReader.config_file_reader.configurations.data_cycles
+        self.branch_count = argumentReader.config_file_reader.configurations.branch_count
+        self.branch_cycles = argumentReader.config_file_reader.configurations.branch_cycles
+        self.control_count = argumentReader.config_file_reader.configurations.control_count
+        self.control_cycles = argumentReader.config_file_reader.configurations.control_cycles
 
         self.adder_units = []
         self.multiplier_units = []
@@ -157,7 +157,7 @@ class ScoreBoard:
 
     def parse_instruction(self, instruction):
         if instruction.opcode == "LI":
-            if instruction.dest_register[0] not  in Register.value:
+            if instruction.dest_register[0] not in Register.value:
                 Register.value[instruction.dest_register[0]] = RegisterObject()
             Register.value[instruction.dest_register[0]].value = int(instruction.source_register[0])
 
@@ -166,7 +166,7 @@ class ScoreBoard:
                 Floating.value[instruction.dest_register[0]] = RegisterObject()
             base = Register.value[instruction.source_register[0]].value
             base += instruction.displacement
-            base = data_file_reader.memory.get_value(base)
+            base = argumentReader.data_file_reader.memory.get_value(base)
             Floating.value[instruction.dest_register[0]].value = base
 
         elif instruction.opcode == "DADDI":
