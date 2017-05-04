@@ -16,6 +16,8 @@ class Configurations:
         self.data_cycles = 2
         self.branch_count = 1
         self.branch_cycles = 1
+        self.control_count = 1
+        self.control_cycles = 1
 
     def set_fp_adder_count(self, fp_adder_count):
         self.fp_adder_count = fp_adder_count
@@ -41,8 +43,6 @@ class Configurations:
     def set_fp_i_cache_block_size(self, fp_i_cache_block_size):
         self.i_cache_block_size = fp_i_cache_block_size
 
-
-
     def __str__(self):
         return_string = ""
         return_string += "FP Adder Count: {0}\n".format(self.fp_adder_count)
@@ -54,7 +54,6 @@ class Configurations:
         return_string += "I-Cache Block Count: {0}\n".format(self.i_cache_block_count)
         return_string += "I-Cache Block Size: {0}\n".format(self.i_cache_block_size)
         return return_string.strip(',')
-
 
     def __repr__(self):
         return self.__str__()

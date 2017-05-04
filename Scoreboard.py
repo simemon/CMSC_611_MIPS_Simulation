@@ -1,7 +1,8 @@
 from __future__ import print_function
 
 from FileReader import config_file_reader, data_file_reader, instr_file_reader
-from Instruction_Type import Instruction_Adder,Instruction_Arithmetic,Instruction_Data,Instruction_Divider,Instruction_Multiplier
+from Instruction_Type import Instruction_Adder,Instruction_Arithmetic,Instruction_Data,\
+    Instruction_Divider,Instruction_Multiplier, Instruction_Control
 from Results import Results
 from Storage import RegisterObject, Register, Floating
 from Data import Memory
@@ -23,6 +24,7 @@ class ScoreBoard:
         self.DIVIDER_LIST = ["DIV.D"]
         self.BRANCH_CONDITIONAL_LIST = ["BEQ", "BNE", "BGTZ", "BLTZ", "BGEZ", "BLEZ"]
         self.BRANCH_UNCONDITIONAL_LIST = ["J"]
+        self.CONTROL_LIST = ["HLT"]
 
         self.adder_count = config_file_reader.configurations.fp_adder_count
         self.adder_cycles = config_file_reader.configurations.fp_adder_cycles
@@ -36,12 +38,15 @@ class ScoreBoard:
         self.data_cycles = config_file_reader.configurations.data_cycles
         self.branch_count = config_file_reader.configurations.branch_count
         self.branch_cycles = config_file_reader.configurations.branch_cycles
+        self.control_count = config_file_reader.configurations.control_count
+        self.control_cycles = config_file_reader.configurations.control_cycles
 
         self.adder_units = []
         self.multiplier_units = []
         self.divider_units = []
         self.arithmetic_units = []
         self.data_units = []
+        self.control_units = []
         self.result = []
 
         for i in range(self.adder_count):
@@ -54,6 +59,8 @@ class ScoreBoard:
             self.arithmetic_units.append(Instruction_Arithmetic(1, 1))
         for i in range(1):
             self.data_units.append((Instruction_Data(1,2)))
+        for i in range(1):
+            self.control_units.append(Instruction_Control(1,1))
 
     def isAdderFree(self):
         when_available = 20000
@@ -115,12 +122,13 @@ class ScoreBoard:
             return "BranchConditional".upper()
         elif instruction.opcode in self.BRANCH_UNCONDITIONAL_LIST:
             return "BranchUnconditional".upper()
+        elif instruction.opcode in self.CONTROL_LIST:
+            return "Control".upper()
         else:
             raise "Unknown Opcode"
 
     def get_result(self):
         return self.result
-
 
     def branch_satisfaction(self, instruction):
         if instruction.opcode == "BEQ":
@@ -248,7 +256,6 @@ class ScoreBoard:
             param1 = param1 // param2 if param2 != 0 else param1
             Floating.value[instruction.dest_register[0]].value = param1
 
-
     def execute(self):
         last_issue = 1
         instruction_index = 0
@@ -256,6 +263,7 @@ class ScoreBoard:
         unconditional_branch_flag = False
         branch_label_conditional = None
         branch_label_unconditional = None
+        hlt_flag = False
 
         #for instruction_index, instruction in enumerate(self.instructions):
         while instruction_index < len(self.instructions):
@@ -268,6 +276,11 @@ class ScoreBoard:
                 # Fetch Stage
                 fetch_cycle = last_issue
                 current_result.set_fetch_stage(last_issue)
+
+                if hlt_flag:
+                    self.result.append(current_result)
+                    current_result.print_row()
+                    return None
 
                 # Parsing Instruction to update the memory
                 self.parse_instruction(instruction)
@@ -344,6 +357,11 @@ class ScoreBoard:
                 fetch_cycle = last_issue
                 current_result.set_fetch_stage(last_issue)
 
+                if hlt_flag:
+                    self.result.append(current_result)
+                    current_result.print_row()
+                    return None
+
                 # Parsing Instruction to update the memory
                 self.parse_instruction(instruction)
 
@@ -418,6 +436,11 @@ class ScoreBoard:
                 # Fetch Stage
                 fetch_cycle = last_issue
                 current_result.set_fetch_stage(last_issue)
+
+                if hlt_flag:
+                    self.result.append(current_result)
+                    current_result.print_row()
+                    return None
 
                 # Parsing Instruction to update the memory
                 self.parse_instruction(instruction)
@@ -494,6 +517,11 @@ class ScoreBoard:
                 fetch_cycle = last_issue
                 current_result.set_fetch_stage(last_issue)
 
+                if hlt_flag:
+                    self.result.append(current_result)
+                    current_result.print_row()
+                    return None
+
                 # Parsing Instruction to update the memory
                 self.parse_instruction(instruction)
 
@@ -568,6 +596,11 @@ class ScoreBoard:
                 # Fetch Stage
                 fetch_cycle = last_issue
                 current_result.set_fetch_stage(last_issue)
+
+                if hlt_flag:
+                    self.result.append(current_result)
+                    current_result.print_row()
+                    return None
 
                 # Parsing Instruction to update the memory
                 self.parse_instruction(instruction)
@@ -644,6 +677,11 @@ class ScoreBoard:
                 fetch_cycle = last_issue
                 current_result.set_fetch_stage(last_issue)
 
+                if hlt_flag:
+                    self.result.append(current_result)
+                    current_result.print_row()
+                    return None
+
                 # Parsing Instruction to update the memory
                 branch_label_conditional = self.branch_satisfaction(instruction)
 
@@ -714,6 +752,11 @@ class ScoreBoard:
                 fetch_cycle = last_issue
                 current_result.set_fetch_stage(last_issue)
 
+                if hlt_flag:
+                    self.result.append(current_result)
+                    current_result.print_row()
+                    return None
+
                 # Parsing Instruction to update the memory
                 branch_label_unconditional = self.branch_satisfaction(instruction)
 
@@ -773,6 +816,22 @@ class ScoreBoard:
                 #
                 # current_result.set_write_stage(write_cycle)
                 # # self.divider_units[index].when_available = write_cycle
+
+            elif instruction_type == "CONTROL":
+                # Fetch Stage
+                fetch_cycle = last_issue
+                current_result.set_fetch_stage(last_issue)
+
+                if hlt_flag:
+                    self.result.append(current_result)
+                    current_result.print_row()
+                    return None
+
+                # Issue Stage
+                issue_cycle = fetch_cycle + 1
+                current_result.set_issue_stage(issue_cycle)
+                last_issue = issue_cycle
+                hlt_flag = True
 
             self.result.append(current_result)
             current_result.print_row()

@@ -127,5 +127,18 @@ class Instruction_UnConditional:
         self.when_available = 0
 
 
+class Instruction_Control:
+    count = 0
+    min_value = 0
+    min_index = 0
+    execution_cycle = 0
+
+    def __init__(self, count, execution_cycle):
+        Instruction_Control.count = count
+        Instruction_Control.execution_cycle = execution_cycle
+        self.isBusy = False
+        self.when_available = 0
+
+
 
 

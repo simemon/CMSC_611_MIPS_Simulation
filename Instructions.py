@@ -44,6 +44,11 @@ class Instructions:
 
     def set_dest_register(self):
         # WITHOUT CONSIDERING SD INSTRUCTION
+
+        #For HLT statement
+        if len(self.operands_list) == 0:
+            return None
+
         self.dest_register.append(self.operands_list[0])
 
     def __str__(self):
