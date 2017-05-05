@@ -300,6 +300,7 @@ class ScoreBoard:
             instruction = self.instructions[instruction_index]
             current_result = Results()
             current_result.set_instruction(instruction)
+            current_result.set_instruction_index(instruction_index)
             instruction_type = self.instruction_type(instruction)
             if instruction_type == "ADDER":
                 # Fetch Stage

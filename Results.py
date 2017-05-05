@@ -17,6 +17,7 @@ class Results:
         self.waw_hazard = 'N'
         self.struct_hazard = 'N'
         self.instruction_text = ""
+        self.instruction_index = 0
 
     def set_instruction(self, instruction):
         self.instruction = instruction
@@ -45,6 +46,9 @@ class Results:
 
     def set_struct_hazard(self, struct_hazard):
         self.struct_hazard = struct_hazard
+
+    def set_instruction_index(self, instruction_index):
+        self.instruction_index = instruction_index
 
     @classmethod
     def print_header(cls):
