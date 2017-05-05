@@ -18,6 +18,7 @@ class Configurations:
         self.branch_cycles = 1
         self.control_count = 1
         self.control_cycles = 1
+        self.penalty = 3
 
     def set_fp_adder_count(self, fp_adder_count):
         self.fp_adder_count = fp_adder_count
@@ -42,6 +43,7 @@ class Configurations:
 
     def set_fp_i_cache_block_size(self, fp_i_cache_block_size):
         self.i_cache_block_size = fp_i_cache_block_size
+        self.penalty = 3 * self.i_cache_block_size
 
     def __str__(self):
         return_string = ""

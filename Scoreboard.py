@@ -7,6 +7,7 @@ from Results import Results
 from Storage import RegisterObject, Register, Floating
 from Data import Memory
 from Label import Label
+from ICache import ICache
 
 class ScoreBoard:
     '''
@@ -40,6 +41,10 @@ class ScoreBoard:
         self.branch_cycles = argumentReader.config_file_reader.configurations.branch_cycles
         self.control_count = argumentReader.config_file_reader.configurations.control_count
         self.control_cycles = argumentReader.config_file_reader.configurations.control_cycles
+        self.penalty = argumentReader.config_file_reader.configurations.penalty
+
+        self.block_size = argumentReader.config_file_reader.configurations.i_cache_block_size
+        self.block_count = argumentReader.config_file_reader.configurations.i_cache_block_count
 
         self.adder_units = []
         self.multiplier_units = []
@@ -299,7 +304,16 @@ class ScoreBoard:
             if instruction_type == "ADDER":
                 # Fetch Stage
                 fetch_cycle = last_issue
-                current_result.set_fetch_stage(last_issue)
+
+                # I-Cache Penalty
+                if instruction_index not in ICache.instruction_index_cache_set \
+                        and instruction_index % self.block_size == 0:
+                    fetch_cycle += self.penalty
+
+                #Need to handle Direct Associativity in the future
+                ICache.add_instruction(instruction_index)
+
+                current_result.set_fetch_stage(fetch_cycle)
 
                 if hlt_flag:
                     self.result.append(current_result)
@@ -379,7 +393,16 @@ class ScoreBoard:
             elif instruction_type == "DATA":
                 # Fetch Stage
                 fetch_cycle = last_issue
-                current_result.set_fetch_stage(last_issue)
+
+                # I-Cache Penalty
+                if instruction_index not in ICache.instruction_index_cache_set \
+                        and instruction_index % self.block_size == 0:
+                    fetch_cycle += self.penalty
+
+                # Need to handle Direct Associativity in the future
+                ICache.add_instruction(instruction_index)
+
+                current_result.set_fetch_stage(fetch_cycle)
 
                 if hlt_flag:
                     self.result.append(current_result)
@@ -459,7 +482,16 @@ class ScoreBoard:
             elif instruction_type == "ARITHMETIC":
                 # Fetch Stage
                 fetch_cycle = last_issue
-                current_result.set_fetch_stage(last_issue)
+
+                # I-Cache Penalty
+                if instruction_index not in ICache.instruction_index_cache_set \
+                        and instruction_index % self.block_size == 0:
+                    fetch_cycle += self.penalty
+
+                # Need to handle Direct Associativity in the future
+                ICache.add_instruction(instruction_index)
+
+                current_result.set_fetch_stage(fetch_cycle)
 
                 if hlt_flag:
                     self.result.append(current_result)
@@ -539,7 +571,16 @@ class ScoreBoard:
             elif instruction_type == "MULTIPLIER":
                 # Fetch Stage
                 fetch_cycle = last_issue
-                current_result.set_fetch_stage(last_issue)
+
+                # I-Cache Penalty
+                if instruction_index not in ICache.instruction_index_cache_set \
+                        and instruction_index % self.block_size == 0:
+                    fetch_cycle += self.penalty
+
+                # Need to handle Direct Associativity in the future
+                ICache.add_instruction(instruction_index)
+
+                current_result.set_fetch_stage(fetch_cycle)
 
                 if hlt_flag:
                     self.result.append(current_result)
@@ -619,7 +660,16 @@ class ScoreBoard:
             elif instruction_type == "DIVIDER":
                 # Fetch Stage
                 fetch_cycle = last_issue
-                current_result.set_fetch_stage(last_issue)
+
+                # I-Cache Penalty
+                if instruction_index not in ICache.instruction_index_cache_set \
+                        and instruction_index % self.block_size == 0:
+                    fetch_cycle += self.penalty
+
+                # Need to handle Direct Associativity in the future
+                ICache.add_instruction(instruction_index)
+
+                current_result.set_fetch_stage(fetch_cycle)
 
                 if hlt_flag:
                     self.result.append(current_result)
@@ -699,7 +749,16 @@ class ScoreBoard:
             elif instruction_type == "BRANCHCONDITIONAL":
                 # Fetch Stage
                 fetch_cycle = last_issue
-                current_result.set_fetch_stage(last_issue)
+
+                # I-Cache Penalty
+                if instruction_index not in ICache.instruction_index_cache_set \
+                        and instruction_index % self.block_size == 0:
+                    fetch_cycle += self.penalty
+
+                # Need to handle Direct Associativity in the future
+                ICache.add_instruction(instruction_index)
+
+                current_result.set_fetch_stage(fetch_cycle)
 
                 if hlt_flag:
                     self.result.append(current_result)
@@ -716,21 +775,6 @@ class ScoreBoard:
                 else:
                     # Issue Stage
                     issue_cycle = fetch_cycle + 1
-                    # index, when = self.isDividerFree()
-                    # if when > issue_cycle:
-                    #     current_result.set_struct_hazard('Y')
-                    #     issue_cycle = when + 1
-                    #
-                    # temp_cycle = issue_cycle
-                    # for register in instruction.dest_register:
-                    #     if register not in Register.value:
-                    #         Register.value[register] = RegisterObject()
-                    #     temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
-                    #
-                    # if temp_cycle > issue_cycle:
-                    #     current_result.set_waw_hazard('Y')
-                    #
-                    # issue_cycle = temp_cycle
                     current_result.set_issue_stage(issue_cycle)
                     last_issue = issue_cycle
 
@@ -740,14 +784,10 @@ class ScoreBoard:
 
                     #Handling RAW Hazards (Source)
                     for register in instruction.source_register[:-1]:
-                        # if register not in Register.value:
-                        #     Register.value[register] = RegisterObject()
                         temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
 
                     #Handling RAW Hazards (Destination)
                     for register in instruction.dest_register:
-                        # if register not in Register.value:
-                        #     Register.value[register] = RegisterObject()
                         temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
                         temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
 
@@ -757,24 +797,19 @@ class ScoreBoard:
                     read_cycle = temp_cycle
                     current_result.set_read_stage(read_cycle)
 
-                    # #Exec Stage
-                    # exec_cycle = read_cycle + self.branch_cycles
-                    # current_result.set_exec_stage(exec_cycle)
-                    #
-                    # #Write Back Stage
-                    # write_cycle = exec_cycle + 1
-                    # # for register in instruction.dest_register:
-                    # #     if register not in Register.value:
-                    # #         Register.value[register] = RegisterObject()
-                    # #     Register.value[register].last_write = write_cycle
-                    #
-                    # current_result.set_write_stage(write_cycle)
-                    # # self.divider_units[index].when_available = write_cycle
-
             elif instruction_type == "BRANCHUNCONDITIONAL":
                 # Fetch Stage
                 fetch_cycle = last_issue
-                current_result.set_fetch_stage(last_issue)
+
+                # I-Cache Penalty
+                if instruction_index not in ICache.instruction_index_cache_set \
+                        and instruction_index % self.block_size == 0:
+                    fetch_cycle += self.penalty
+
+                # Need to handle Direct Associativity in the future
+                ICache.add_instruction(instruction_index)
+
+                current_result.set_fetch_stage(fetch_cycle)
 
                 if hlt_flag:
                     self.result.append(current_result)
@@ -786,65 +821,22 @@ class ScoreBoard:
 
                 # Issue Stage
                 issue_cycle = fetch_cycle + 1
-                # index, when = self.isDividerFree()
-                # if when > issue_cycle:
-                #     current_result.set_struct_hazard('Y')
-                #     issue_cycle = when + 1
-                #
-                # temp_cycle = issue_cycle
-                # for register in instruction.dest_register:
-                #     if register not in Register.value:
-                #         Register.value[register] = RegisterObject()
-                #     temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
-                #
-                # if temp_cycle > issue_cycle:
-                #     current_result.set_waw_hazard('Y')
-                #
-                # issue_cycle = temp_cycle
                 current_result.set_issue_stage(issue_cycle)
                 last_issue = issue_cycle
-
-                # #Read Stage
-                # read_cycle = issue_cycle + 1
-                # temp_cycle = read_cycle
-                #
-                # #Handling RAW Hazards (Source)
-                # for register in instruction.source_register[:-1]:
-                #     # if register not in Register.value:
-                #     #     Register.value[register] = RegisterObject()
-                #     temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
-                #
-                # #Handling RAW Hazards (Destination)
-                # for register in instruction.dest_register:
-                #     # if register not in Register.value:
-                #     #     Register.value[register] = RegisterObject()
-                #     temp_cycle = max(Register.value[register].last_write + 1, temp_cycle)
-                #     temp_cycle = max(Register.value[register].last_read + 1, temp_cycle)
-                #
-                # if temp_cycle > read_cycle:
-                #     current_result.set_raw_hazard('Y')
-                #
-                # read_cycle = temp_cycle
-                # current_result.set_read_stage(read_cycle)
-
-                # #Exec Stage
-                # exec_cycle = read_cycle + self.branch_cycles
-                # current_result.set_exec_stage(exec_cycle)
-                #
-                # #Write Back Stage
-                # write_cycle = exec_cycle + 1
-                # # for register in instruction.dest_register:
-                # #     if register not in Register.value:
-                # #         Register.value[register] = RegisterObject()
-                # #     Register.value[register].last_write = write_cycle
-                #
-                # current_result.set_write_stage(write_cycle)
-                # # self.divider_units[index].when_available = write_cycle
 
             elif instruction_type == "CONTROL":
                 # Fetch Stage
                 fetch_cycle = last_issue
-                current_result.set_fetch_stage(last_issue)
+
+                # I-Cache Penalty
+                if instruction_index not in ICache.instruction_index_cache_set \
+                        and instruction_index % self.block_size == 0:
+                    fetch_cycle += self.penalty
+
+                # Need to handle Direct Associativity in the future
+                ICache.add_instruction(instruction_index)
+
+                current_result.set_fetch_stage(fetch_cycle)
 
                 if hlt_flag:
                     self.result.append(current_result)

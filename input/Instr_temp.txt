@@ -3,5 +3,3 @@ LI R5, 272
 LI R1, 8
 LI R2, 4
 LI R3, 10
-SW R3, 0(R4)
-LW R4, 0(R4)

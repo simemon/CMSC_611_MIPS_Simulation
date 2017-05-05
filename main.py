@@ -23,4 +23,4 @@ except Exception as e:
 
 print("Result is done")
 
-Register.print_values()
+# Register.print_values()
