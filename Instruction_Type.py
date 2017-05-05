@@ -139,6 +139,3 @@ class Instruction_Control:
         self.isBusy = False
         self.when_available = 0
 
-
-
-

@@ -3,6 +3,7 @@ import re
 from Label import Label
 
 class Instructions:
+    regex = re.compile("([0-9])+\(([a-zA-Z\d]+)\)")
     def __init__(self, number):
         self.label = None
         self.opcode = None
@@ -29,21 +30,26 @@ class Instructions:
         self.set_dest_register()
 
     def set_source_register(self):
-        # WITHOUT CONSIDERING SD INSTRUCTION
-        regex = re.compile("([0-9])+\(([a-zA-Z\d]+)\)")
+        if self.opcode == "S.D" or self.opcode == "SW":
+            self.source_register.append(self.operands_list[0])
+            return None
+
         for operands in self.operands_list[1:]:
             if not operands.isdigit():
                 if "(" in operands:
-                    self.displacement = int(regex.search(operands).groups()[0])
-                    self.source_register.append(regex.search(operands).groups()[1])
+                    self.displacement = int(Instructions.regex.search(operands).groups()[0])
+                    self.source_register.append(Instructions.regex.search(operands).groups()[1])
                 else:
                     self.source_register.append(operands)
             else:
                 self.source_register.append(operands)
 
-
     def set_dest_register(self):
         # WITHOUT CONSIDERING SD INSTRUCTION
+        if self.opcode == "S.D" or self.opcode == "SW":
+            self.displacement = int(Instructions.regex.search(self.operands_list[1]).groups()[0])
+            self.dest_register.append(Instructions.regex.search(self.operands_list[1]).groups()[1])
+            return None
 
         #For HLT statement
         if len(self.operands_list) == 0:

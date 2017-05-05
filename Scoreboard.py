@@ -154,12 +154,19 @@ class ScoreBoard:
 
         return None
 
-
     def parse_instruction(self, instruction):
         if instruction.opcode == "LI":
             if instruction.dest_register[0] not in Register.value:
                 Register.value[instruction.dest_register[0]] = RegisterObject()
             Register.value[instruction.dest_register[0]].value = int(instruction.source_register[0])
+
+        elif instruction.opcode == "LW":
+            if instruction.dest_register[0] not  in Register.value:
+                Register.value[instruction.dest_register[0]] = RegisterObject()
+            base = Register.value[instruction.source_register[0]].value
+            base += instruction.displacement
+            base = argumentReader.data_file_reader.memory.get_value(base)
+            Register.value[instruction.dest_register[0]].value = base
 
         elif instruction.opcode == "L.D":
             if instruction.dest_register[0] not  in Floating.value:
@@ -168,6 +175,23 @@ class ScoreBoard:
             base += instruction.displacement
             base = argumentReader.data_file_reader.memory.get_value(base)
             Floating.value[instruction.dest_register[0]].value = base
+
+        elif instruction.opcode == "SW":
+            # if instruction.source_register[0] not in Register.value:
+            #     Register.value[instruction.source_register[0]] = RegisterObject()
+            base = Register.value[instruction.dest_register[0]].value
+            base += instruction.displacement
+            # base = argumentReader.data_file_reader.memory.get_value(base)
+            value = Register.value[instruction.source_register[0]].value
+            argumentReader.data_file_reader.memory.set_value(base, value)
+
+        elif instruction.opcode == "S.D":
+            if instruction.source_register[0] not in Floating.value:
+                Floating.value[instruction.source_register[0]] = RegisterObject()
+            base = Register.value[instruction.dest_register[0]].value
+            base += instruction.displacement
+            value = Floating.value[instruction.source_register[0]].value
+            # argumentReader.data_file_reader.memory.set_value(base, value)
 
         elif instruction.opcode == "DADDI":
             if instruction.dest_register[0] not  in Register.value:
