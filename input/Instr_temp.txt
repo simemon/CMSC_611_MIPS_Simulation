@@ -1,5 +1,5 @@
 LI R4, 260
 LI R5, 272
 LI R1, 8
-LI R2, 4
+PP : LI R2, 4
 LI R3, 10

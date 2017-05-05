@@ -75,12 +75,19 @@ class InstructionFileParser:
         instruction = Instructions(index) # Instruction Number from #0
         instruction.set_text(line.strip())
         line = line.strip().upper()
+
+        opcode_token = 0
+
+        index_colon = line.find(':')
+        if index_colon != -1:
+            instruction.set_label(line[:index_colon].strip())
+            print(instruction.label + "#")
+            line = line[index_colon + 1:].strip()
+            print(line)
+
         tokens = re.split('\s+', line)
         tokens = [token.strip(',') for token in tokens]
-        opcode_token = 0
-        if ":" in tokens[0]:
-            instruction.set_label(tokens[0].strip(':'))
-            opcode_token = 1
+
         instruction.set_opcode(tokens[opcode_token].strip())
         instruction.set_operands(tokens[opcode_token + 1:])
         return instruction
